@@ -609,11 +609,26 @@ console.log(Direction.Left);
 
 ## 14.不太常见的原语
 
-* **bigint:** 非常大的整数
-* **symbol:**通过函数创建全局唯一引用
+### 14.1 bigint(ES2020及以上)
 
-### 14.1 bigint
+​	用于非常大的整数的原语 BigInt 
 
-
+```ts
+// 通过bigint函数创建bigint
+const oneHundred: bigint = BigInt(100);
+// 通过文本语法创建BigInt
+const anotherHundred: bigint = 100n;
+```
 
 ### 14.2 symbol
+
+​	用于通过函数创建全局唯一引用
+
+```ts
+const firstName = Symbol("name");
+const secondName = Symbol("name");
+if (firstName === secondName) {
+// 这里的代码不可能执行,因为一直返回false
+}
+```
+

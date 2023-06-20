@@ -1,4 +1,4 @@
-# 一、typescript入门
+# 一、ts入门
 
 ## 1.优化编译
 
@@ -79,7 +79,7 @@ function greet(person: string, date: Date) {
 
 
 
-# 二、typescript常用类型
+# 二、ts常用类型
 
 ## 1.**基元类型**
 
@@ -629,6 +629,557 @@ const firstName = Symbol("name");
 const secondName = Symbol("name");
 if (firstName === secondName) {
 // 这里的代码不可能执行,因为一直返回false
+}
+```
+
+
+
+# 三、ts类型缩小
+
+* **作用：**处理`联合类型`变量
+
+​	有一个名为 `padLeft` 的函数，需要实现下列功能：如果 `padding` 是 `number` ，它会将其视为我们想要添加到` input` 的空格数；如果 `padding `是 `string `，它只在 `input `上做 `padding` 。让我们尝试实现：
+
+```ts
+function padLeft(padding: number | string, input: string) {
+    //返回一个数组实例个数加1的空格，拼接在input的前面
+	return new Array(padding + 1).join(" ") + input; 
+}
+```
+
+>  **注意：**
+>
+> 在 `padding + 1` 处我们遇到错误。
+>
+> TypeScript 警告我们，运算符 `+ `不能应用于类型` string | number `和 `number` ，这是对的。换句话说，我们没有明确检查` padding` 是否为 `number `，也没有处理它是` string` 的情况
+
+**修改如下：**
+
+```ts
+function padLeft(padding: number | string, input: string) {
+    if (typeof padding === "number") {
+    return new Array(padding + 1).join(" ") + input;
+}
+    return padding + input;
+}
+```
+
+* 在我们的if检查中，`TypeScript`看到` typeof padding ==="number" `，并将其理解为一种特殊形式的代码，称为类型保护。
+
+* 它查看这些**特殊的检查**（称为类型防护）和**赋值**；将类型细化为**比声明的更具体的类型的过程**被称为缩小。
+
+  > **下面是缩小类型的方法**
+
+## 3.1 typeof 类型守卫
+
+​	TypeScript 期望`typeof`返回一组特定的类型字符串，可以理解为缩小在不同分支的类型。
+
+```ts
+typeof strs === "string"
+                "number"
+                "bigint"
+                "boolean"
+                "symbol"
+                "undefined"
+                "object"
+                "function"
+```
+例子如下：
+```ts
+function printAll(strs: string | string[] | null) {
+  // 为了不出现类型错误，我们需要把类型缩小
+  if (typeof strs === 'object') {
+    // strs是数组
+    // 报错: 'strs' is possibly 'null'，
+    //因为typeof null 也是'object' 这是一个历史遗留问题
+    for (const s of strs) {
+      console.log(s);
+    }
+  } else if (strs === 'string') {
+    // strs为字符串
+  } else {
+    // strs为null
+  }
+}
+```
+
+
+
+## 3.2 真值缩小
+```ts
+function getUsersOnlineMessage(numUsersOnline: number) {
+if (numUsersOnline) {
+return `现在共有 ${numUsersOnline} 人在线!`;
+}
+return "现在没有人在线. :(";
+}
+```
+在 JavaScript 中，像这样的 if 条件语句，首先将它们的条件“强制”转化为 boolean 以使其有意义，然后根据结果是 true 还是 false 来选择它们的分支。像这面这些值：
+
+```tsx
+0
+NaN
+"" （空字符串）
+0n （ bigint 零的版本）
+null
+undefined
+```
+
+以上所有值强制都转换为 false ，其他值被强制转化为 true 。
+
+* **其他方法：**
+  1. 使用`Boolean`,传入非空字符串就返回`true`
+  2. 使用`!!`,第一个`!`可以把对象转换为**文字布尔类型**，第二个`!`可以把类型转换为真正的`true`或`false`
+
+```tsx
+// 这两个结果都返回 true
+Boolean("hello"); // type: boolean, value: true
+!!"world"; // type: true, value: true
+```
+
+* 现在可以解决3.1d=遗留的问题
+
+```ts
+// 真值缩小
+function printsAll(strs: string | string[] | null) {
+  if (strs && typeof strs === 'object') {
+    // 首先进行真值检查，能通过检查说明是数组
+    for (let s in strs) {
+      console.log('s', s);
+    }
+  } else if (typeof strs === 'string') {
+    // 字符串
+    console.log(strs);
+  } else {
+    // 为null
+  }
+}
+
+function multiplyAll(
+  values: number[] | undefined,
+  factor: number) {
+  if (!values) {
+    return values
+  } else {
+    // 存在
+    return values.map((x) => {
+      return x * factor
+    })
+  }
+}
+
+console.log(multiplyAll([2, 3, 4], 5)); //[ 10, 15, 20 ]
+console.log(multiplyAll(undefined, 5)); //undefined
+```
+
+
+
+## 3.3 等值缩小
+
+typescript 也使用分支语句做 `===`  ，` !== `，` == `，和` != `等值检查，来实现类型缩小。例如：
+
+* `!= null`可以排除为`null`和`undefined`的情况
+
+  > 因为在**真值缩小**中，我们知道`null`和`undefined`值都为`false`，所以使用不严格不等于可以同时排除两个情况。
+
+```ts
+function example(x: string | number, y: string | boolean) {
+  if (x === y) {
+    // 能走该分支说明，x和y都是string类型，所以都能调用toUpperCase
+    x.toUpperCase()
+    y.toUpperCase()
+  } else {
+    console.log('x', x);
+    console.log('y', y);
+  }
+}
+
+interface Container {
+  value: number | null | undefined
+}
+
+function multiplyValue(container: Container, factor: number) {
+    // 从类型中排除了undefined 和 null
+    if (container.value != null) {
+    console.log(container.value);
+    // 现在我们可以安全地乘以“container.value”了
+    container.value *= factor;
+}
+}
+
+multiplyValue({ value: 5 }, 6)
+multiplyValue({ value: null }, 6)
+multiplyValue({ value: undefined }, 6)
+//前三个通过
+multiplyValue({ value: '5' }, 6); //报错
+
+```
+
+
+
+## 3.4 in操作符缩小
+
+​	用于确定**对象**是否具有**某个名称的属性**：` in 运算符`。以此来缩小潜在类型的范围。
+
+​	` "value" in x` 。这里的 `"value" `是**字符串文字**， `x `是**联合类型**。
+
+* 对于值为 `true` 的分支，它要求 `x` 具有**可选**或**必需属性**的类型的值。这意味着 `x` 可能是一个**对象**，并且该对象可以包含一个属性名为 `"value"` 的属性。这个属性可以是可选的，也可以是必需的。
+
+  > 换句话说，`x` 可能是一个具有 `"value"` 属性的对象，该属性可以有值也可以没有值。
+
+* 对于值为 `false` 的分支，它要求具有**可选**或**缺失属性**的类型的值。这意味着 `x` 可能是一个对象，并且该对象不包含属性名为 `"value"` 的属性。
+
+  > ​	换句话说，`x` 可能是一个没有 `"value"` 属性的对象，但它仍然可以具有其他可选属性或不包含任何可选属性。
+
+1. 具有可选或必需的 `"value"` 属性的对象：
+
+```ts
+type ObjectWithValue = {
+  value?: string; // 可选属性,可以不传递value属性
+} | {
+  value: string; // 必需属性
+};
+
+const obj1: ObjectWithValue = { value: "Hello" };
+
+//下面的value是属性名称
+if ("value" in obj1) {
+  console.log(obj1.value); // 输出: Hello
+}
+
+```
+
+2. 不包含 `"value"` 属性但可能有其他可选属性的对象：
+
+```ts
+type ObjectWithoutValue = {
+  otherProp?: number; // 其他可选属性
+};
+
+const obj2: ObjectWithoutValue = { otherProp: 10 };
+
+if ("value" in obj2) {
+  //如果obj2中有value属性，才会执行
+  console.log(obj2.value); // 不会执行，因为 obj2 没有 "value" 属性
+} else {
+  console.log("obj2 没有 value 属性"); // 输出: obj2 没有 value 属性
+}
+
+```
+
+​	**其他例子：**
+
+```ts
+type Fish = { swim: () => void }
+type Bird = { fly: () => void }
+
+function move(animal: Fish | Bird) {
+  if ("swim" in animal) {
+    return animal.swim()
+  }
+  return animal.fly()
+}
+```
+
+​	另外，可选属性还将存在于缩小的两侧，例如，人类可以游泳和飞行（使用正确的设备），因此应该出现在 in 检查的两侧：
+
+```ts
+type Fish = { swim: () => void };
+type Bird = { fly: () => void };
+type Human = { swim?: () => void; fly?: () => void };
+function move(animal: Fish | Bird | Human) {
+  if ("swim" in animal) {
+    // 两种可能
+    // animal: Fish | Human
+    // 使用类型断言解决
+    return (animal as Fish).swim();
+  } else {
+    // animal: Bird | Human
+    return (animal as Bird).fly();
+  }
+}
+```
+
+
+
+## 3.5 instanceof 操作符缩小
+
+* **关键字：**`instanceof`
+* **作用**：检查一个值是否是另外一个值的实例
+
+如：
+
+```ts
+x instanceof Foo //检查x的原型链中是否有Foo。prototype
+```
+
+**类型缩小例子：**
+
+```ts
+function logValue(x: Date | string) {
+  if (x instanceof Date) {
+    console.log(x.toUTCString());
+  } else {
+    console.log(x.toUpperCase());
+  }
+}
+
+logValue(new Date()) //Sun, 18 Jun 2023 09:55:01 GMT
+logValue('hello') //HELLO
+```
+
+
+
+## 3.6 分配缩小
+
+​	当我们为任何变量赋值时，TypeScript 会**查看赋值的右侧**并适当**缩小左侧**。
+
+如下列例子：
+
+```ts
+// ts自动检测出x的类型。 
+// let X : string | number
+let x = Math.random() < 0.5 ? 10 : 'ok'
+console.log(x);
+// let x:number
+x = 1
+console.log(x);
+// let x:string
+x = 'okk'
+
+console.log(x);
+
+// 类型在第一次的时候已经固定了，除非你去修改
+// let x : boolean
+// x = true // Type 'boolean' is not assignable to type 'string | number'.
+```
+
+
+
+## 3.7 控制流分析
+
+​	它通过分析**条件语句**（比如 if、switch）和**循环语句**（比如 for、while），以及**函数调用**和**返回值**，来判断变量在不同代码块中的类型可能会发生变化。
+
+​	在 TypeScript 中，控制流分析用于确定**变量的类型**在**不同代码块**中的变化。当条件语句的结果或函数的返回值会影响变量的类型时，TypeScript 可以根据代码的逻辑路径来推断变量的类型。
+
+​	总结起来，控制流分析就是根据代码的执行路径，推断变量在不同代码块中的类型变化，以提供更准确的类型检查和帮助开发人员编写可靠的代码。
+
+**例子1：**
+
+```ts
+function example1() {
+  let x: string | number | boolean //x的类型有三种
+  x = Math.random() < 0.5
+  // let x:boolean,x的类型被缩小为boolean
+  console.log(x);
+  // 下面的if判断代码执行时，x的类型已经变为string|number了，boolean已经被覆盖了
+  if (Math.random() < 0.5) {
+    x = 'hello'
+    // x:string
+    console.log('x');
+  } else {
+    x = 100
+    // x:number
+    console.log(x);
+  }
+  return x
+}
+
+let y = example1()
+y = 'hello'
+y = 100
+y = true //Type 'boolean' is not assignable to type 'string | number'.
+```
+
+**例子2：**
+
+```ts
+function example(flag: boolean) {
+  let x: number | string;
+
+  if (flag) {
+    x = 10;
+    // 在这个分支中，x 的类型被推断为 number
+  } else {
+    x = "hello";
+    // 在这个分支中，x 的类型被推断为 string
+  }
+
+  return x;
+}
+
+const result = example(true);
+// result 的类型被推断为 number
+
+console.log(result.toFixed(2));
+// 这里可以安全地调用 toFixed 方法，因为 TypeScript 知道 result 是一个 number 类型
+
+```
+
+
+
+## 3.8 使用类型谓词
+
+​	类型谓词是一种在TypeScript中用于**缩小变量类型范围**的语法。通过使用类型谓词，我们可以在特定的条件下，告诉TypeScript编译器某个变量的更具体的类型。
+
+​	类型谓词的基本语法是一个**断言函数**，它返回一个**布尔值**。如果断言函数返回true，TypeScript编译器会将变量的类型缩小为断言的类型。
+
+​	谓词的形式是 `parameterName is Type` ，其中`parameterName `必须是当前函数签名中的参数名称
+
+**存在类型谓词：**
+
+```ts
+function isNumber(value: any): value is number {
+  return typeof value === 'number';
+}
+
+function processValue(value: any) {
+  if (isNumber(value)) {
+    // 有类型谓词，value 的类型被缩小为 number
+    console.log(value.toFixed(2)); // 正确：value 的类型被缩小为 number
+  } else {
+    console.log('Invalid value');
+  }
+}
+
+const numValue: number = 10;
+processValue(numValue);
+```
+
+**例子：**
+
+```ts
+type Fish = {
+    name: string
+    swim: () => void
+}
+type Bird = {
+    name: string
+    fly: () => void
+}
+function isFish(pet: Fish | Bird): pet is Fish {
+    return (pet as Fish).swim !== undefined
+}
+//函数内部通过检查 pet 的属性 swim 是否存在来进行判断，如果存在，则说明它是一只鱼。
+
+
+function getSmallPet(): Fish | Bird {
+    let fish: Fish = {
+        name: 'gold fish',
+        swim: () => {
+        }
+    }
+    let bird: Bird = {
+        name: 'sparrow',
+        fly: () => {
+        }
+    }
+    return true ? bird : fish
+}
+// 这里 pet 的 swim 和 fly 都可以访问了
+let pet = getSmallPet()
+if (isFish(pet)) {
+    //由于我们在 isFish 函数中使用了类型谓词 pet is Fish，TypeScript 将正确地缩小 pet 的类型为 Fish，因此我们可以安全地调用 pet.swim() 方法。
+    pet.swim()
+} else {
+    //由于 pet 不是鱼类型，因此 TypeScript 推断 pet 的类型为 Bird，因此我们可以安全地调用 pet.fly() 方法。
+    pet.fly()
+}
+```
+
+
+
+## 3.9 受歧视的 unions
+
+```ts
+// interface Shape {
+//   // 防止用户输入除circle和square外的类型
+//   kind: 'circle' | 'square',
+//   // 如果kind是square，radius应该是不存在的，所以是可选的
+//   radius?: number
+//   // 如果kind是circle，sidLength应该是不存在的，所以是可选的
+//   sideLength?: number
+// }
+
+// 为了解决getArea函数中会报错的问题，修改接口
+interface Circle {
+  kind: 'circle',
+  radius: number
+}
+
+interface Square {
+  kind: 'square',
+  sideLength: number
+}
+
+type Shape = Circle | Square
+// function handleShape(shape: Shape) {
+//   if (shape.kind === 'rect') {
+//     // kind不是'circle' | 'square'，会报错
+//   }
+// }
+
+function getArea(shape: Shape) {
+  // return Math.PI * shape.radius ** 2   //'shape.radius' is possibly 'undefined'.
+  // return Math.PI * shape.radius! ** 2   //可以在可选变量后加入！，代表一定存在,但是不符合逻辑，用户可能不需要这个参数
+  // 解决方法
+  // 类型缩小
+  // 写法1
+  // if (shape.kind === 'circle') {
+  //   return Math.PI * shape.radius ** 2
+  // }
+  //写法2
+  switch (shape.kind) {
+    case 'circle':
+      return Math.PI * shape.radius ** 2
+    case 'square':
+      return shape.sideLength ** 2
+  }
+}
+```
+
+
+
+## 3.10 never类型与穷尽性检查
+
+​	TypeScript将使用一个 never 类型来代表一个不应该存在的状态。
+
+​	`never` 类型可以分配给每个类型；但是，没有任何类型可以分配给never（除了never本身）。这意味着你可以使用缩小并依靠 never 的出现在 switch 语句中做详尽的检查。
+
+```ts
+
+// 为了解决getArea函数中会报错的问题，修改接口
+interface Circle1 {
+  kind: 'circle',
+  radius: number
+}
+
+interface Square1 {
+  kind: 'square',
+  sideLength: number
+}
+
+interface Triangle {
+  kind: 'triangle',
+  sideLength: number
+}
+
+type Shape1 = Circle | Square | Triangle
+
+function getArea1(shape: Shape1) {
+  switch (shape.kind) {
+    case 'circle':
+      return Math.PI * shape.radius ** 2
+    case 'square':
+      return shape.sideLength ** 2
+
+    default:
+      //never可以做穷尽性检查，如果shape的类型只有circle | square，那default中类型应该是never
+      //如果shape的类型不只有circle | square，说明在default中，还有其他类型，就会报错：不能将该类型(剩下的类型)分配给never
+
+      const _exhaustiveCheck: never = shape //'Triangle' is not assignable to type 'never'.
+      return _exhaustiveCheck
+  }
 }
 ```
 
